@@ -403,12 +403,8 @@ module BoxGrinder
         http.request(req)
         }
 
-        #puts res
-        #puts res.body
-
         case res
         when Net::HTTPSuccess
-          puts "went here"
           return res.body.chomp.chop
         else
           res.error!
