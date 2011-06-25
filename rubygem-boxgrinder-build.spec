@@ -164,7 +164,7 @@ popd
 - [BGBUILD-251] Add ap-northeast-1 (tokyo) region for EBS plugin
 - [BGBUILD-248] Throw error in S3 plugin if invalid region is specified
 - [BGBUILD-250] EBS plugin incorrectly determines that non-US regions are not EC2 instances
-- [BGBUILD-254] Not able to deliver EBS AMIs to end-points other than us-east-1
+- [BGBUILD-254] Not able to deliver EBS AMIs to regions other than us-east-1
 
 * Thu May 05 2011 Marek Goldmann <mgoldman@redhat.com> - 0.9.2-1
 - Upstream release: 0.9.2
