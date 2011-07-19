@@ -183,7 +183,7 @@ module BoxGrinder
         FileUtils.mv(path, @target_deliverables[name])
       end if @move_deliverables
 
-      FileUtils.rm_rf @dir.tmp
+      #FileUtils.rm_rf @dir.tmp               temporary for diag
     end
 
     def deliverables_exists?

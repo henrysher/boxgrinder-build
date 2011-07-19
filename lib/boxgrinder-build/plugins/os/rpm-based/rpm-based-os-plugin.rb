@@ -166,7 +166,8 @@ module BoxGrinder
       begin
         @exec_helper.execute "appliance-creator -d -v -t '#{@dir.tmp}' --cache=#{@config.dir.cache}/rpms-cache/#{@appliance_config.path.main} --config '#{kickstart_file}' -o '#{@dir.tmp}' --name '#{@appliance_config.name}' --vmem #{@appliance_config.hardware.memory} --vcpu #{@appliance_config.hardware.cpus} --format #{@plugin_config['format']}"
       rescue InterruptionError => e
-        cleanup_after_appliance_creator(e.pid)
+        #cleanup_after_appliance_creator(e.pid)
+        @log.debug "Not cleaning up, might need to manually remove mounts to delete directory" #TODO this is temporary for diagnostics
         abort
       end
     end
