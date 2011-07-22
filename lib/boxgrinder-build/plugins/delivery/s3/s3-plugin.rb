@@ -17,10 +17,9 @@
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
 require 'rubygems'
+require 'aws-sdk'
 require 'boxgrinder-build/plugins/base-plugin'
 require 'boxgrinder-build/helpers/package-helper'
-require 'AWS'
-require 'aws'
 
 module BoxGrinder
   class S3Plugin < BasePlugin
@@ -94,10 +93,18 @@ module BoxGrinder
       end
 
       raise PluginValidationError, "Invalid region specified: #{@plugin_config['region']}. This plugin only aware of the following regions: #{REGION_OPTIONS.keys.join(", ")}" unless REGION_OPTIONS.has_key?(@plugin_config['region'])
-
     end
 
     def execute
+        # Set global AWS configuration
+        AWS.config(:access_key_id => @plugin_config['access_key'],
+            :secret_access_key => @plugin_config['secret_access_key'],
+            :ec2_endpoint => "ec2.#{@plugin_config['region']}.amazonaws.com",
+            :s3_endpoint => REGION_OPTIONS[@plugin_config['region']][:endpoint],
+            :max_retries => 5,
+            :use_ssl => @plugin_config['use_ssl'])
+            #:logger => @log)   need to  modify our logger to accept blah.log(:level, 'message')
+
       case @type
         when :s3
           upload_to_bucket(@previous_deliverables)
@@ -106,31 +113,31 @@ module BoxGrinder
         when :ami
           @plugin_config['account_number'] = @plugin_config['account_number'].to_s.gsub(/-/, '')
 
-          @ec2 = AWS::EC2::Base.new(:access_key_id => @plugin_config['access_key'], :secret_access_key => @plugin_config['secret_access_key'], :server => "ec2.#{@plugin_config['region']}.amazonaws.com")
+          @ec2 = AWS::EC2.new
 
           ami_dir = ami_key(@appliance_config.name, @plugin_config['path'])
-          ami_manifest_key = "#{ami_dir}/#{@appliance_config.name}.ec2.manifest.xml"
-          s3_object_exists = s3_object_exists?(ami_manifest_key)
+          ami_manifest_key = s3_stub_obj "#{ami_dir}/#{@appliance_config.name}.ec2.manifest.xml"
 
-           @log.debug "Going to check whether s3 object exists"
+          @log.debug "Going to check whether s3 object exists"
 
-          if s3_object_exists and @plugin_config['overwrite']
+          if s3_object_exists?(ami_manifest_key) and @plugin_config['overwrite']
             @log.info "Object exists, attempting to deregister an existing image"
             deregister_image(ami_manifest_key) # Remove existing image
-            bucket().delete_folder(ami_dir) # Avoid triggering dupe detection
+            delete_folder(bucket(),ami_dir) # Avoid triggering dupe detection
           end
 
-          if !s3_object_exists or @plugin_config['snapshot']
+          if !s3_object_exists?(ami_manifest_key) or @plugin_config['snapshot']
             @log.info "Doing bundle/snapshot"
             bundle_image(@previous_deliverables)
             fix_sha1_sum
             upload_image(ami_dir)
-          else
-            @log.debug "AMI for #{@appliance_config.name} appliance already uploaded, skipping..."
           end
-
           register_image(ami_manifest_key)
       end
+    end
+
+    def delete_folder(bucket,ami_dir)
+      bucket.objects.with_prefix(ami_dir.sub(/\/$/,'')).map(&:delete)
     end
 
     # https://jira.jboss.org/browse/BGBUILD-34
@@ -141,7 +148,23 @@ module BoxGrinder
       File.open(@ami_manifest, "w") { |f| f.write(ami_manifest) }
     end
 
-    def upload_to_bucket(previous_deliverables, permissions = 'private')
+    #There is no 'key_exists?' type method.. so this is a work-around.
+    #If the object does not exist, and you attempt to read the etag it returns a NoMethodError
+    #but it *should* return a NoSuchKey exception (bug). This seems better than listing all keys and searching..
+    def s3_object_exists?(s3_object)
+      @log.trace "Checking if '#{s3_object.key}' path exists in #{@plugin_config['bucket']}..."
+      begin
+        if s3_object.etag
+          @log.trace "Path exists! #{s3_object.etag}"
+          return true
+        end
+      rescue AWS::S3::Errors::NoSuchKey, NoMethodError
+        @log.trace "Path does not exist"
+        return false
+      end
+    end
+
+    def upload_to_bucket(previous_deliverables, permissions = :private)
       register_deliverable(
           :package => "#{@appliance_config.name}-#{@appliance_config.version}.#{@appliance_config.release}-#{@appliance_config.os.name}-#{@appliance_config.os.version}-#{@appliance_config.hardware.arch}-#{current_platform}.tgz"
       )
@@ -152,24 +175,31 @@ module BoxGrinder
       PackageHelper.new(@config, @appliance_config, :log => @log, :exec_helper => @exec_helper).package(File.dirname(previous_deliverables[:disk]), @deliverables[:package])
 
       remote_path = "#{s3_path(@plugin_config['path'])}#{File.basename(@deliverables[:package])}"
-      size_b = File.size(@deliverables[:package])
-      key = bucket(true, permissions).key(remote_path.gsub(/^\//, '').gsub(/\/\//, ''))
+      size_m = File.size(@deliverables[:package])/1024**2
+      s3_obj = s3_stub_obj(remote_path.gsub(/^\//, '').gsub(/\/\//, ''))
+      # Does it really exist?
+      obj_exists = s3_object_exists?(s3_obj)
 
-      if !key.exists? or @plugin_config['overwrite']
-        @log.info "Will overwrite existing file #{remote_path}" if key.exists? and @plugin_config['overwrite']
-        @log.info "Uploading #{File.basename(@deliverables[:package])} (#{size_b/1024/1024}MB) to '#{@plugin_config['bucket']}#{remote_path}' path..."
-        key.put(open(@deliverables[:package]), permissions, :server => REGION_OPTIONS[@plugin_config['region']][:endpoint])
+      if !obj_exists or @plugin_config['overwrite']
+        @log.info "Will overwrite existing file #{remote_path}" if obj_exists and @plugin_config['overwrite']
+        @log.info "Uploading #{File.basename(@deliverables[:package])} (#{size_m}MB) to '#{@plugin_config['bucket']}#{remote_path}' path..."
+        s3_obj.write(:file => @deliverables[:package],
+                        :acl => permissions)
         @log.info "Appliance #{@appliance_config.name} uploaded to S3."
       else
         @log.info "File '#{@plugin_config['bucket']}#{remote_path}' already uploaded, skipping."
       end
-
-      @s3.close_connection
     end
 
-    def bucket(create_if_missing = true, permissions = 'private')
-      @s3 ||= Aws::S3.new(@plugin_config['access_key'], @plugin_config['secret_access_key'], :connection_mode => :single, :logger => @log, :server => REGION_OPTIONS[@plugin_config['region']][:endpoint])
-      @s3.bucket(@plugin_config['bucket'], create_if_missing, permissions, :location => REGION_OPTIONS[@plugin_config['region']][:location])
+    def bucket(create_if_missing = true, permissions = :private)
+      @s3 ||= AWS::S3.new
+      s3b = @s3.buckets[@plugin_config['bucket']]
+      return s3b if s3b.exists?
+
+      return @s3.buckets.create(@plugin_config['bucket'],
+                         :acl => permissions,
+                         :location_constraint => REGION_OPTIONS[@plugin_config['region']][:location]) if create_if_missing
+      nil
     end
 
     def bundle_image(deliverables)
@@ -197,44 +227,43 @@ module BoxGrinder
     end
 
     def register_image(ami_manifest_key)
-      info = ami_info(ami_manifest_key)
+      ami = ami_info(ami_manifest_key)
 
-      if info
-        @log.info "Image for #{@appliance_config.name} is registered under id: #{info.imageId} (region: #{@plugin_config['region']})."
+      if ami
+        @log.info "Image for #{@appliance_config.name} is already registered under id: #{ami.id} (region: #{@plugin_config['region']})."
       else
-        info = @ec2.register_image(:image_location => "#{@plugin_config['bucket']}/#{ami_manifest_key}")
-        @log.info "Image for #{@appliance_config.name} successfully registered under id: #{info.imageId} (region: #{@plugin_config['region']})."
+        ami = @ec2.images.create(:image_location =>  "#{@plugin_config['bucket']}/#{ami_manifest_key.key}")
+        @log.info "Image for #{@appliance_config.name} successfully registered under id: #{ami.id} (region: #{@plugin_config['region']})."
       end
     end
 
     def deregister_image(ami_manifest_key)
       info = ami_info(ami_manifest_key)
       if info
-        @ec2.deregister_image(:image_id => info.imageId)
-        @log.info "Preexisting image '#{info.imageLocation}' for #{@appliance_config.name} was successfully de-registered, it had id: #{info.imageId} (region: #{@plugin_config['region']})."
+        @log.info "Preexisting image '#{info.location}' for #{@appliance_config.name} will be de-registered, it had id: #{info.id} (region: #{@plugin_config['region']})."
+        info.deregister
       else # This occurs when the AMI is de-registered externally but the file structure is left intact in S3. In this instance, we simply overwrite and register the image as if it were "new".
         @log.info "Possible dangling/unregistered AMI skeleton structure in S3, there is nothing to deregister"
       end
     end
 
     def ami_info(ami_manifest_key)
-      ami_info = nil
-
-      images = @ec2.describe_images(:owner_id => @plugin_config['account_number']).imagesSet
-
-      return nil if images.nil?
-
-      for image in images.item do
-        ami_info = image if (image.imageLocation.eql?("#{@plugin_config['bucket']}/#{ami_manifest_key}"))
+      AWS.memoize do #http://docs.amazonwebservices.com/AWSRubySDK/latest/AWS.html#memoize-class_method
+        ami = @ec2.images.with_owner(@plugin_config['account_number']).
+            filter("manifest-location","#{@plugin_config['bucket']}/#{ami_manifest_key.key}")
+        return nil unless ami
+        ami.first
       end
-
-      ami_info
     end
 
     def s3_path(path)
       return '' if path == '/'
 
       "#{path.gsub(/^(\/)*/, '').gsub(/(\/)*$/, '')}/"
+    end
+
+    def s3_stub_obj(path)
+        bucket().objects[path]
     end
 
     def ami_key(appliance_name, path)
@@ -246,7 +275,7 @@ module BoxGrinder
 
       snapshot = 1
 
-      while s3_object_exists?("#{base_path}-SNAPSHOT-#{snapshot}/#{@appliance_config.hardware.arch}/")
+      while s3_object_exists?(s3_stub_obj "#{base_path}-SNAPSHOT-#{snapshot}/#{@appliance_config.hardware.arch}/")
         snapshot += 1
       end
 
@@ -256,23 +285,6 @@ module BoxGrinder
       "#{base_path}-SNAPSHOT-#{snapshot}/#{@appliance_config.hardware.arch}"
     end
 
-    def s3_object_exists?(path)
-      @log.trace "Checking if '#{path}' path exists in #{@plugin_config['bucket']}..."
-
-      begin
-        b = bucket(false)
-        # Retrieve only one or no keys (if bucket is empty), throw an exception if bucket doesn't exist
-        b.keys('max-keys' => 1)
-
-        if b.key(path).exists?
-          @log.trace "Path exists!"
-          return true
-        end
-      rescue
-      end
-      @log.trace "Path doesn't exist!"
-      false
-    end
   end
 end
 

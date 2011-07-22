@@ -18,7 +18,7 @@
 
 require 'rubygems'
 require 'boxgrinder-build/plugins/base-plugin'
-require 'AWS'
+require 'aws-sdk'
 require 'open-uri'
 require 'timeout'
 require 'pp'
@@ -78,21 +78,24 @@ module BoxGrinder
     TIMEOUT = 1000 #seconds
     EC2_HOSTNAME_LOOKUP_TIMEOUT = 10
 
-    def validate
-      raise PluginValidationError, "You are trying to run this plugin on invalid platform. You can run the EBS delivery plugin only on EC2." unless valid_platform?
+    # This is temporarily disabled on THIS BRANCH until full transition to aws-sdk gem is finished.
+    def validate; end
 
-      @current_availability_zone = get_ec2_availability_zone; @log.trace @current_availability_zone
-
-      set_default_config_value('availability_zone', @current_availability_zone)
-      set_default_config_value('delete_on_termination', true)
-      set_default_config_value('overwrite', false)
-      set_default_config_value('snapshot', false)
-      set_default_config_value('preserve_snapshots', false)
-      validate_plugin_config(['access_key', 'secret_access_key', 'account_number'], 'http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EBS_Delivery_Plugin')
-
-      raise PluginValidationError, "You can only convert to EBS type AMI appliances converted to EC2 format. Use '-p ec2' switch. For more info about EC2 plugin see http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EC2_Platform_Plugin." unless @previous_plugin_info[:name] == :ec2
-      raise PluginValidationError, "You selected #{@plugin_config['availability_zone']} availability zone, but your instance is running in #{@current_availability_zone} zone. Please change availability zone in plugin configuration file to #{@current_availability_zone} (see http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EBS_Delivery_Plugin) or use another instance in #{@plugin_config['availability_zone']} zone to create your EBS AMI." if @plugin_config['availability_zone'] != @current_availability_zone
-    end
+    #def validate
+    #  raise PluginValidationError, "You are trying to run this plugin on invalid platform. You can run the EBS delivery plugin only on EC2." unless valid_platform?
+    #
+    #  @current_availability_zone = get_ec2_availability_zone; @log.trace @current_availability_zone
+    #
+    #  set_default_config_value('availability_zone', @current_availability_zone)
+    #  set_default_config_value('delete_on_termination', true)
+    #  set_default_config_value('overwrite', false)
+    #  set_default_config_value('snapshot', false)
+    #  set_default_config_value('preserve_snapshots', false)
+    #  validate_plugin_config(['access_key', 'secret_access_key', 'account_number'], 'http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EBS_Delivery_Plugin')
+    #
+    #  raise PluginValidationError, "You can only convert to EBS type AMI appliances converted to EC2 format. Use '-p ec2' switch. For more info about EC2 plugin see http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EC2_Platform_Plugin." unless @previous_plugin_info[:name] == :ec2
+    #  raise PluginValidationError, "You selected #{@plugin_config['availability_zone']} availability zone, but your instance is running in #{@current_availability_zone} zone. Please change availability zone in plugin configuration file to #{@current_availability_zone} (see http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EBS_Delivery_Plugin) or use another instance in #{@plugin_config['availability_zone']} zone to create your EBS AMI." if @plugin_config['availability_zone'] != @current_availability_zone
+    #end
 
     def after_init
       @region = availability_zone_to_region(@current_availability_zone)
