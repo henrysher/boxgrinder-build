@@ -1,6 +1,3 @@
-#
-# Copyright 2010 Red Hat, Inc.
-#
 # This is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as
 # published by the Free Software Foundation; either version 3 of
@@ -32,10 +29,10 @@ module BoxGrinder
         },
         "6"  => {
             "base" => {
-                "mirrorlist" => "http://mirrorlist.centos.org/?release=6&arch=#BASE_ARCH#&repo=os"
+                "mirrorlist" => "http://mirrorlist.centos.org/?release=6&arch=x86_64&repo=os"
             },
             "updates" => {
-                "mirrorlist" => "http://mirrorlist.centos.org/?release=6&arch=#BASE_ARCH#&repo=updates"
+                "mirrorlist" => "http://mirrorlist.centos.org/?release=6&arch=x86_64&repo=updates"
             }
         }
 
