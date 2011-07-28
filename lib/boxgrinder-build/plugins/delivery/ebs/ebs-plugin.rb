@@ -18,6 +18,7 @@
 
 require 'rubygems'
 require 'boxgrinder-build/plugins/base-plugin'
+require 'boxgrinder-build/helpers/ebs-helper'
 require 'aws-sdk'
 require 'open-uri'
 require 'timeout'
@@ -25,53 +26,6 @@ require 'pp'
 
 module BoxGrinder
   class EBSPlugin < BasePlugin
-    KERNELS = {
-        'eu-west-1' => {
-            :endpoint => 'ec2.eu-west-1.amazonaws.com',
-            :location => 'EU',
-            :kernel => {
-                'i386' => {:aki => 'aki-4deec439'},
-                'x86_64' => {:aki => 'aki-4feec43b'}
-            }
-        },
-
-        'ap-southeast-1' => {
-            :endpoint => 'ec2.ap-southeast-1.amazonaws.com',
-            :location => 'ap-southeast-1',
-            :kernel => {
-                'i386' => {:aki => 'aki-13d5aa41'},
-                'x86_64' => {:aki => 'aki-11d5aa43'}
-            }
-        },
-
-        'ap-northeast-1' => {
-            :endpoint => 'ec2.ap-northeast-1.amazonaws.com',
-            :location => 'ap-northeast-1',
-            :kernel => {
-                'i386' => {:aki => 'aki-d209a2d3'},
-                'x86_64' => {:aki => 'aki-d409a2d5'}
-            }
-
-        },
-
-        'us-west-1' => {
-            :endpoint => 'ec2.us-west-1.amazonaws.com',
-            :location => 'us-west-1',
-            :kernel => {
-                'i386' => {:aki => 'aki-99a0f1dc'},
-                'x86_64' => {:aki => 'aki-9ba0f1de'}
-            }
-        },
-
-        'us-east-1' => {
-            :endpoint => 'ec2.amazonaws.com',
-            :location => '',
-            :kernel => {
-                'i386' => {:aki => 'aki-407d9529'},
-                'x86_64' => {:aki => 'aki-427d952b'}
-            }
-        }
-    }
 
     ROOT_DEVICE_NAME = '/dev/sda1'
     POLL_FREQ = 1 #second
@@ -79,23 +33,23 @@ module BoxGrinder
     EC2_HOSTNAME_LOOKUP_TIMEOUT = 10
 
     # This is temporarily disabled on THIS BRANCH until full transition to aws-sdk gem is finished.
-    def validate; end
 
-    #def validate
-    #  raise PluginValidationError, "You are trying to run this plugin on invalid platform. You can run the EBS delivery plugin only on EC2." unless valid_platform?
-    #
-    #  @current_availability_zone = get_ec2_availability_zone; @log.trace @current_availability_zone
-    #
-    #  set_default_config_value('availability_zone', @current_availability_zone)
-    #  set_default_config_value('delete_on_termination', true)
-    #  set_default_config_value('overwrite', false)
-    #  set_default_config_value('snapshot', false)
-    #  set_default_config_value('preserve_snapshots', false)
-    #  validate_plugin_config(['access_key', 'secret_access_key', 'account_number'], 'http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EBS_Delivery_Plugin')
-    #
-    #  raise PluginValidationError, "You can only convert to EBS type AMI appliances converted to EC2 format. Use '-p ec2' switch. For more info about EC2 plugin see http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EC2_Platform_Plugin." unless @previous_plugin_info[:name] == :ec2
-    #  raise PluginValidationError, "You selected #{@plugin_config['availability_zone']} availability zone, but your instance is running in #{@current_availability_zone} zone. Please change availability zone in plugin configuration file to #{@current_availability_zone} (see http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EBS_Delivery_Plugin) or use another instance in #{@plugin_config['availability_zone']} zone to create your EBS AMI." if @plugin_config['availability_zone'] != @current_availability_zone
-    #end
+    def validate
+      raise PluginValidationError, "You are trying to run this plugin on an invalid platform. You can run the EBS delivery plugin only on EC2." unless valid_platform?
+
+      @ec2_endpoints = EBSHelper::endpoints
+      @current_availability_zone = get_ec2_availability_zone
+
+      set_default_config_value('availability_zone', @current_availability_zone)
+      set_default_config_value('delete_on_termination', true)
+      set_default_config_value('overwrite', false)
+      set_default_config_value('snapshot', false)
+      set_default_config_value('preserve_snapshots', false)
+      validate_plugin_config(['access_key', 'secret_access_key', 'account_number'], 'http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EBS_Delivery_Plugin')
+
+      raise PluginValidationError, "You can only convert to EBS type AMI appliances converted to EC2 format. Use '-p ec2' switch. For more info about EC2 plugin see http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EC2_Platform_Plugin." unless @previous_plugin_info[:name] == :ec2
+      raise PluginValidationError, "You selected #{@plugin_config['availability_zone']} availability zone, but your instance is running in #{@current_availability_zone} zone. Please change availability zone in plugin configuration file to #{@current_availability_zone} (see http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EBS_Delivery_Plugin) or use another instance in #{@plugin_config['availability_zone']} zone to create your EBS AMI." if @plugin_config['availability_zone'] != @current_availability_zone
+    end
 
     def after_init
       @region = availability_zone_to_region(@current_availability_zone)
@@ -110,7 +64,7 @@ module BoxGrinder
 
       @ec2 = AWS::EC2::Base.new(:access_key_id => @plugin_config['access_key'],
                                 :secret_access_key => @plugin_config['secret_access_key'],
-                                :server => KERNELS[@region][:endpoint]
+                                :server => @ec2_endpoints[@region][:endpoint]
       )
 
       @log.debug "Checking if appliance is already registered..."
@@ -223,7 +177,7 @@ module BoxGrinder
                                     }],
           :root_device_name => ROOT_DEVICE_NAME,
           :architecture => @appliance_config.hardware.base_arch,
-          :kernel_id => KERNELS[@region][:kernel][@appliance_config.hardware.base_arch][:aki],
+          :kernel_id => @ec2_endpoints[@region][:kernel][@appliance_config.hardware.base_arch][:aki],
           :name => ebs_appliance_name,
           :description => ebs_appliance_description)['imageId']
 
@@ -442,8 +396,8 @@ module BoxGrinder
     def valid_platform?
       begin
         region = availability_zone_to_region(get_ec2_availability_zone)
-        return true if KERNELS.has_key? region
-        @log.warn "You may be using an ec2 region that BoxGrinder Build is not aware of: #{region}, BoxGrinder Build knows of: #{KERNELS.join(", ")}"
+        return true if @ec2_endpoints.has_key? region
+        @log.warn "You may be using an ec2 region that BoxGrinder Build is not aware of: #{region}, BoxGrinder Build knows of: #{@ec2_endpoints.join(", ")}"
       rescue Net::HTTPServerException => e
         @log.warn "An error was returned when attempting to retrieve the ec2 hostname: #{e.to_s}"
       rescue Timeout::Error => t
