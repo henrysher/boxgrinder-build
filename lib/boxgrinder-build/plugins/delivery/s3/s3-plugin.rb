@@ -48,8 +48,9 @@ module BoxGrinder
       end
 
       @s3_endpoints = S3Helper::endpoints
-
       raise PluginValidationError, "Invalid region specified: #{@plugin_config['region']}. This plugin is only aware of the following regions: #{@s3_endpoints.keys.join(", ")}" unless @s3_endpoints.has_key?(@plugin_config['region'])
+
+      @plugin_config['account_number'] = @plugin_config['account_number'].to_s.gsub(/-/, '')
     end
 
     def execute
@@ -73,8 +74,6 @@ module BoxGrinder
         when :cloudfront
           upload_to_bucket(@previous_deliverables, :public_read)
         when :ami
-          @plugin_config['account_number'] = @plugin_config['account_number'].to_s.gsub(/-/, '')
-
           ami_dir = ami_key(@appliance_config.name, @plugin_config['path'])
           ami_manifest_key = @s3helper.stub_s3obj(asset_bucket, "#{ami_dir}/#{@appliance_config.name}.ec2.manifest.xml")
 

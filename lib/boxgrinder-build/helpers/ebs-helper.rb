@@ -2,8 +2,7 @@ require 'aws-sdk'
 require 'boxgrinder-build/helpers/aws-helper'
 
 module BoxGrinder
-  class EBSHelper
-    include AWSHelper
+  class EBSHelper < AWSHelper
 
     def initialize(ec2, options={})
       raise ArgumentError, "ec2 argument must not be nil" if ec2.nil?

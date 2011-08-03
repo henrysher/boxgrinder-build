@@ -1,8 +1,7 @@
 require 'boxgrinder-build/helpers/aws-helper'
 
 module BoxGrinder
-  class S3Helper
-    include AWSHelper
+  class S3Helper < AWSHelper
 
     #AWS::S3 object should be instantiated already, as config can be inserted
     #via global AWS.config or via AWS::S3.initialize
