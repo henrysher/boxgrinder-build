@@ -21,7 +21,7 @@ require 'aws-sdk'
 require 'boxgrinder-build/plugins/base-plugin'
 require 'boxgrinder-build/helpers/package-helper'
 require 'boxgrinder-build/helpers/s3-helper'
-require 'boxgrinder-build/helpers/ebs-helper'
+require 'boxgrinder-build/helpers/ec2-helper'
 
 module BoxGrinder
   class S3Plugin < BasePlugin
@@ -58,7 +58,7 @@ module BoxGrinder
       # Set global AWS configuration
       AWS.config(:access_key_id => @plugin_config['access_key'],
         :secret_access_key => @plugin_config['secret_access_key'],
-        :ec2_endpoint => EBSHelper::endpoints[@plugin_config['region']][:endpoint],
+        :ec2_endpoint => EC2Helper::endpoints[@plugin_config['region']][:endpoint],
         :s3_endpoint => @s3_endpoints[@plugin_config['region']][:endpoint],
         :max_retries => 5,
         :use_ssl => @plugin_config['use_ssl'])
@@ -67,6 +67,7 @@ module BoxGrinder
       @ec2 = AWS::EC2.new
       @s3 = AWS::S3.new
       @s3helper = S3Helper.new(@ec2, @s3, :log => @log)
+      @ec2helper = EC2Helper.new(@ec2, :log => @log)
 
       case @type
         when :s3
@@ -163,23 +164,22 @@ module BoxGrinder
     end
 
     def register_image(ami_manifest_key)
-      ami = ami_info(ami_manifest_key)
-
-      if ami
+      if ami = ami_info(ami_manifest_key)
         @log.info "Image for #{@appliance_config.name} is already registered under id: #{ami.id} (region: #{@plugin_config['region']})."
       else
         ami = @ec2.images.create(:image_location =>  "#{@plugin_config['bucket']}/#{ami_manifest_key.key}")
+        @ec2helper.wait_for_image_state(:available, ami)
         @log.info "Image for #{@appliance_config.name} successfully registered under id: #{ami.id} (region: #{@plugin_config['region']})."
       end
     end
 
     def deregister_image(ami_manifest_key)
-      info = ami_info(ami_manifest_key)
-      if info
-        @log.info "Preexisting image '#{info.location}' for #{@appliance_config.name} will be de-registered, it had id: #{info.id} (region: #{@plugin_config['region']})."
-        info.deregister
+      if ami = ami_info(ami_manifest_key)
+        @log.info "Preexisting image '#{ami.location}' for #{@appliance_config.name} will be de-registered, it had id: #{ami.id} (region: #{@plugin_config['region']})."
+        ami.deregister
+        @ec2helper.wait_for_image_death(ami)
       else # This occurs when the AMI is de-registered externally but the file structure is left intact in S3. In this instance, we simply overwrite and register the image as if it were "new".
-        @log.info "Possible dangling/unregistered AMI skeleton structure in S3, there is nothing to deregister"
+        @log.debug "Possible dangling/unregistered AMI skeleton structure in S3, there is nothing to deregister"
       end
     end
 
@@ -187,7 +187,7 @@ module BoxGrinder
       AWS.memoize do #http://docs.amazonwebservices.com/AWSRubySDK/latest/AWS.html#memoize-class_method
         ami = @ec2.images.with_owner(@plugin_config['account_number']).
             filter("manifest-location","#{@plugin_config['bucket']}/#{ami_manifest_key.key}")
-        return nil unless ami
+        return nil unless ami.any?
         ami.first
       end
     end

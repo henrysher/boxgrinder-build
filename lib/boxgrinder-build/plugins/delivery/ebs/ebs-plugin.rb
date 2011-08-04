@@ -18,7 +18,7 @@
 
 require 'rubygems'
 require 'boxgrinder-build/plugins/base-plugin'
-require 'boxgrinder-build/helpers/ebs-helper'
+require 'boxgrinder-build/helpers/ec2-helper'
 require 'aws-sdk'
 require 'open-uri'
 require 'timeout'
@@ -33,13 +33,13 @@ module BoxGrinder
     EC2_HOSTNAME_LOOKUP_TIMEOUT = 10
 
     def validate
-      @ec2_endpoints = EBSHelper::endpoints
+      @ec2_endpoints = EC2Helper::endpoints
 
       raise PluginValidationError, "You are trying to run this plugin on an invalid platform. You can run the EBS delivery plugin only on EC2." unless valid_platform?
 
-      @current_availability_zone = current_availability_zone
-      @current_instance_id = current_instance_id
-      @current_region = availability_zone_to_region(@current_availability_zone)
+      @current_availability_zone = EC2Helper::current_availability_zone
+      @current_instance_id = EC2Helper::current_instance_id
+      @current_region = EC2Helper::availability_zone_to_region(@current_availability_zone)
 
       set_default_config_value('availability_zone', @current_availability_zone)
       set_default_config_value('delete_on_termination', true)
@@ -71,7 +71,7 @@ module BoxGrinder
         :use_ssl => @plugin_config['use_ssl'])
 
       @ec2 = AWS::EC2.new
-      @ebshelper = EBSHelper.new(@ec2, :log => @log)
+      @ec2helper = EC2Helper.new(@ec2, :log => @log)
 
       @log.debug "Checking if appliance is already registered..."
       ami = find_ami(ebs_appliance_name)
@@ -91,13 +91,11 @@ module BoxGrinder
       # create_volume, ceiling to avoid non-Integer values as per https://issues.jboss.org/browse/BGBUILD-224
       volume = @ec2.volumes.create(:size => size.ceil.to_i, :availability_zone => @plugin_config['availability_zone'])
 
-      begin
-
       @log.debug "Volume #{volume.id} created."
       @log.debug "Waiting for EBS volume #{volume.id} to be available..."
 
       # wait for volume to be created
-      wait_for_volume_status(:available, volume)
+      @ec2helper.wait_for_volume_status(:available, volume)
 
       # get first free device to mount the volume
       suffix = free_device_suffix
@@ -115,7 +113,7 @@ module BoxGrinder
 
       @log.debug "Waiting for EBS volume to be attached..."
       # wait for volume to be attached
-      wait_for_volume_status(:in_use, volume)
+      @ec2helper.wait_for_volume_status(:in_use, volume)
 
       @log.debug "Waiting for the attached EBS volume to be discovered by the OS"
       wait_for_volume_attachment(suffix)
@@ -133,7 +131,7 @@ module BoxGrinder
       volume.attachments.map(&:delete)
 
       @log.debug "Waiting for EBS volume to become available..."
-      wait_for_volume_status(:available, volume)
+      @ec2helper.wait_for_volume_status(:available, volume)
 
       @log.info "Creating snapshot from EBS volume..."
       snapshot = @ec2.snapshots.create(
@@ -141,7 +139,7 @@ module BoxGrinder
           :description => ebs_appliance_description)
 
       @log.debug "Waiting for snapshot #{snapshot.id} to be completed..."
-      wait_for_snapshot_status(:completed, snapshot)
+      @ec2helper.wait_for_snapshot_status(:completed, snapshot)
 
       @log.debug "Deleting temporary EBS volume..."
       volume.delete
@@ -156,7 +154,7 @@ module BoxGrinder
                                     },
                                     '/dev/sdb' => {
                                       :volume_size => 10
-                                      #:virtual_name => 'ephemeral0'
+                                      #:virtual_name => 'ephemeral0' this attrib is missing :(
                                     },
                                     '/dev/sdc' => {
                                       :volume_size => 10
@@ -174,13 +172,12 @@ module BoxGrinder
           :kernel_id => @ec2_endpoints[@current_region][:kernel][@appliance_config.hardware.base_arch.intern][:aki],
           :description => ebs_appliance_description)
 
-           wait_for_image_state(:available, image)
-
-      rescue Timeout::Error
-        @log.error "Timed out. Manual intervention may be necessary to complete the task."
-        raise
-      end
+      @log.info "Waiting for the new EBS AMI to become available"
+      @ec2helper.wait_for_image_state(:available, image)
       @log.info "EBS AMI '#{image.name}' registered: #{image.id} (region: #{@current_region})"
+    rescue Timeout::Error
+      @log.error "An operation timed out. Manual intervention may be necessary to complete the task."
+      raise
     end
 
     def snapshot_by_id(snapshot_id)
@@ -197,7 +194,7 @@ module BoxGrinder
     def terminate_instances(instances)
       instances.map(&:terminate)
       instances.each do |i|
-        wait_for_instance_death(i)
+        @ec2helper.wait_for_instance_death(i)
       end
     end
 
@@ -218,7 +215,7 @@ module BoxGrinder
 
       @log.info("De-registering the EBS AMI.")
       ami.deregister
-      wait_for_image_death(ami)
+      @ec2helper.wait_for_image_death(ami)
       
       if !@plugin_config['preserve_snapshots'] and primary_snapshot
         @log.info("Deleting the primary snapshot.")
@@ -256,58 +253,8 @@ module BoxGrinder
 
     alias :already_registered? :find_ami
 
-    #Being serial shouldn't be much slower as we are blocked by the slowest stopper anyway
-    def wait_for_instance_death(instance)
-      begin
-        wait_for_instance_status(:terminated, instance) if instance.exists?
-      rescue AWS::EC2::Errors::InvalidInstanceID::NotFound
-      end #It is possible to miss the 'terminated' status and go straight to NotFound
-    end
-
-    def wait_for_image_state(state, ami)
-      #First wait for the AMI to be confirmed to exist (after creating, an immediate query can cause an error)
-      @ebshelper.wait_with_timeout(POLL_FREQ, TIMEOUT){ ami.exists? }
-      @ebshelper.wait_with_timeout(POLL_FREQ, TIMEOUT){ ami.state == state }
-    end
-
-    def wait_for_image_death(ami)
-      @ebshelper.wait_with_timeout(POLL_FREQ, TIMEOUT){ !ami.exists? }
-    end
-
-    def wait_for_instance_status(status, instance)
-      @ebshelper.wait_with_timeout(POLL_FREQ, TIMEOUT){ instance.status == status }
-    end
-
     def wait_for_volume_attachment(suffix)
-      @ebshelper.wait_with_timeout(POLL_FREQ, TIMEOUT){ device_for_suffix(suffix) != nil }
-    end
-
-    def wait_for_snapshot_status(status, snapshot)
-      begin
-        progress = -1
-        @ebshelper.wait_with_timeout(POLL_FREQ, TIMEOUT) do
-          current_progress = snapshot.progress || 0
-          unless progress == current_progress
-            @log.info "Progress: #{current_progress}%"
-            progress = current_progress
-          end
-          snapshot.status == status
-        end
-      rescue Exception
-        @log.debug "Polling of snapshot #{snapshot.id} for status '#{status}' failed" unless snapshot.nil?
-        raise
-      end
-    end
-
-    def wait_for_volume_status(status, volume)
-      begin
-        @ebshelper.wait_with_timeout(POLL_FREQ, TIMEOUT) do
-         volume.status == status
-        end
-      rescue Exception
-        @log.debug "Polling of volume #{volume.id} for status '#{status}' failed: #{PP::pp(volume)}" unless volume.nil?
-        raise
-      end
+      @ec2helper.wait_with_timeout(POLL_FREQ, TIMEOUT){ device_for_suffix(suffix) != nil }
     end
 
     def device_for_suffix(suffix)
@@ -325,7 +272,7 @@ module BoxGrinder
 
     def valid_platform?
       begin
-        region = availability_zone_to_region(current_availability_zone)
+        region = EC2Helper::availability_zone_to_region(EC2Helper::current_availability_zone)
         return true if @ec2_endpoints.has_key? region
         @log.warn "You may be using an ec2 region that BoxGrinder Build is not aware of: #{region}, BoxGrinder Build knows of: #{@ec2_endpoints.join(", ")}"
       rescue Net::HTTPServerException => e
@@ -334,27 +281,6 @@ module BoxGrinder
         @log.warn "A timeout occurred while attempting to retrieve the ec2 hostname: #{t.to_s}"
       end
       false
-    end
-
-    def get_meta_data(path)
-      timeout(EC2_HOSTNAME_LOOKUP_TIMEOUT) do
-        req = Net::HTTP::Get.new(path)
-        res = Net::HTTP.start('169.254.169.254', 80) {|http| http.request(req)}
-        return res.body if  Net::HTTPSuccess
-        res.error!
-      end
-    end
-
-    def current_availability_zone
-      get_meta_data('/latest/meta-data/placement/availability-zone/')
-    end
-
-    def current_instance_id
-      get_meta_data('/latest/meta-data/instance-id')
-    end
-
-    def availability_zone_to_region(availability_zone)
-      availability_zone.scan(/((\w+)-(\w+)-(\d+))/).flatten.first
     end
 
   end

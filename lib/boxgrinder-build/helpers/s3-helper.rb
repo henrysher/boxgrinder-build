@@ -17,7 +17,7 @@ module BoxGrinder
       defaults = {:bucket => nil, :acl => :private, :location_constraint => 'us-east-1', :create_if_missing => false}.merge!(options)
       options = parse_opts(options, defaults)
 
-      s3b = @s3.buckets[defaults[:bucket]]
+      s3b = @s3.buckets[options[:bucket]]
       return s3b if s3b.exists?
       return @s3.buckets.create(options[:bucket],
                          :acl => options[:acl],
