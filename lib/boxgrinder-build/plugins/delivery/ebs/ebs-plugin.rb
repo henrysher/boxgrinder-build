@@ -152,22 +152,10 @@ module BoxGrinder
                                       :snapshot => snapshot,
                                       :delete_on_termination => @plugin_config['delete_on_termination']
                                     },
-                                    '/dev/sdb' => {
-                                      :volume_size => 10
-                                      #:virtual_name => 'ephemeral0' this attrib is missing :(
-                                    },
-                                    '/dev/sdc' => {
-                                      :volume_size => 10
-                                      #:virtual_name => 'ephemeral1'
-                                    },
-                                    '/dev/sdd' => {
-                                      :volume_size => 10
-                                      #:virtual_name => 'ephemeral2'
-                                    },
-                                    '/dev/sde' => {
-                                      :volume_size => 10
-                                      #:virtual_name => 'ephemeral3'
-                                    }},
+                                    '/dev/sdb' => 'ephemeral0',
+                                    '/dev/sdc' => 'ephemeral1',
+                                    '/dev/sdd' => 'ephemeral2',
+                                    '/dev/sde' => 'ephemeral3'},
           :architecture => @appliance_config.hardware.base_arch,
           :kernel_id => @ec2_endpoints[@current_region][:kernel][@appliance_config.hardware.base_arch.intern][:aki],
           :description => ebs_appliance_description)
@@ -202,11 +190,11 @@ module BoxGrinder
       #Find any instances that are running, if they are not stopped then abort.
       if live = live_instances(ami)
         if @plugin_config['terminate_instances']
-          @log.info "Terminating the following instances: #{live.collect{|i| "#{i.instanceId} (#{i.status})"}.join(", ")}."
+          @log.info "Terminating the following instances: #{live.collect{|i| "#{i.id} (#{i.status})"}.join(", ")}."
           terminate_instances(live)
         else
           raise "There are still instances of #{ami.id} running, you should terminate them after " <<
-               "preserving any important data #{live.collect{|i| "#{i.instanceId} (#{i.status})"}.join(", ")}."
+               "preserving any important data: #{live.collect{|i| "#{i.id} (#{i.status})"}.join(", ")}."
         end
       end
 
