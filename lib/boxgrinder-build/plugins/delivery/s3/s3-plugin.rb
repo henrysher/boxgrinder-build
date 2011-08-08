@@ -51,9 +51,6 @@ module BoxGrinder
       raise PluginValidationError, "Invalid region specified: #{@plugin_config['region']}. This plugin is only aware of the following regions: #{@s3_endpoints.keys.join(", ")}" unless @s3_endpoints.has_key?(@plugin_config['region'])
 
       @plugin_config['account_number'] = @plugin_config['account_number'].to_s.gsub(/-/, '')
-    end
-
-    def execute
 
       # Set global AWS configuration
       AWS.config(:access_key_id => @plugin_config['access_key'],
@@ -68,7 +65,9 @@ module BoxGrinder
       @s3 = AWS::S3.new
       @s3helper = S3Helper.new(@ec2, @s3, :log => @log)
       @ec2helper = EC2Helper.new(@ec2, :log => @log)
+    end
 
+    def execute
       case @type
         when :s3
           upload_to_bucket(@previous_deliverables)
@@ -151,7 +150,7 @@ module BoxGrinder
 
       FileUtils.mkdir_p(@ami_build_dir)
 
-      @exec_helper.execute("euca-bundle-image --ec2cert #{File.dirname(__FILE__)}/src/cert-ec2.pem -i #{deliverables[:disk]} --kernel #{@s3_endpoints[@plugin_config['region']][:kernel][@appliance_config.hardware.base_arch.intern][:aki]} -c #{@plugin_config['cert_file']} -k #{@plugin_config['key_file']} -u #{@plugin_config['account_number']} -r #{@appliance_config.hardware.base_arch} -d #{@ami_build_dir}")#, :redacted => [@plugin_config['account_number'], @plugin_config['key_file'], @plugin_config['cert_file']])
+      @exec_helper.execute("euca-bundle-image --ec2cert #{File.dirname(__FILE__)}/src/cert-ec2.pem -i #{deliverables[:disk]} --kernel #{@s3_endpoints[@plugin_config['region']][:kernel][@appliance_config.hardware.base_arch.intern][:aki]} -c #{@plugin_config['cert_file']} -k #{@plugin_config['key_file']} -u #{@plugin_config['account_number']} -r #{@appliance_config.hardware.base_arch} -d #{@ami_build_dir}", :redacted => [@plugin_config['account_number'], @plugin_config['key_file'], @plugin_config['cert_file']])
 
       @log.info "Bundling AMI finished."
     end
@@ -164,7 +163,7 @@ module BoxGrinder
     end
 
     def register_image(ami_manifest_key)
-      if ami = ami_info(ami_manifest_key)
+      if ami = ami_by_manifest_key(ami_manifest_key)
         @log.info "Image for #{@appliance_config.name} is already registered under id: #{ami.id} (region: #{@plugin_config['region']})."
       else
         ami = @ec2.images.create(:image_location =>  "#{@plugin_config['bucket']}/#{ami_manifest_key.key}")
@@ -174,7 +173,7 @@ module BoxGrinder
     end
 
     def deregister_image(ami_manifest_key)
-      if ami = ami_info(ami_manifest_key)
+      if ami = ami_by_manifest_key(ami_manifest_key)
         @log.info "Preexisting image '#{ami.location}' for #{@appliance_config.name} will be de-registered, it had id: #{ami.id} (region: #{@plugin_config['region']})."
         ami.deregister
         @ec2helper.wait_for_image_death(ami)
@@ -183,13 +182,11 @@ module BoxGrinder
       end
     end
 
-    def ami_info(ami_manifest_key)
-      AWS.memoize do #http://docs.amazonwebservices.com/AWSRubySDK/latest/AWS.html#memoize-class_method
-        ami = @ec2.images.with_owner(@plugin_config['account_number']).
-            filter("manifest-location","#{@plugin_config['bucket']}/#{ami_manifest_key.key}")
-        return nil unless ami.any?
-        ami.first
-      end
+    def ami_by_manifest_key(ami_manifest_key)
+      ami = @ec2.images.with_owner(@plugin_config['account_number']).
+          filter("manifest-location","#{@plugin_config['bucket']}/#{ami_manifest_key.key}")
+      return nil unless ami.any?
+      ami.first
     end
 
     def ami_key(appliance_name, path)

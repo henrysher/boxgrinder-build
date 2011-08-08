@@ -31,7 +31,8 @@ module BoxGrinder
     def object_exists?(s3_object)
       @log.trace "Checking if '#{s3_object.key}' exists"
       begin
-        if s3_object.etag
+        #if s3_object.etag
+        if s3_object.exists?
           @log.trace "Object exists! #{s3_object.etag}"
           return true
         end
