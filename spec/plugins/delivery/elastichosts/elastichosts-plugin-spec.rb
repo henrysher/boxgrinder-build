@@ -18,8 +18,8 @@
 
 require 'rubygems'
 require 'rspec'
-require 'boxgrinder-build/plugins/delivery/elastichosts/elastichosts-plugin'
 require 'hashery/opencascade'
+require 'boxgrinder-build/plugins/delivery/elastichosts/elastichosts-plugin'
 
 module BoxGrinder
   describe ElasticHostsPlugin do

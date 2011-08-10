@@ -4,10 +4,18 @@ module BoxGrinder
   class AWSHelper
     #Setting value of a key to nil in opts_defaults forces non-nil value of key in opts_in
     def parse_opts(opts_in, opts_defaults)
-      opts_in.merge!(opts_defaults).each_pair do |k,v|
-        raise ArgumentError, "Unrecognised argument #{k.to_s}" unless opts_defaults.has_key?(k)
-        raise ArgumentError, "Argument #{k.to_s} must not be nil" if v == nil and opts_defaults[k] == nil
+      diff_id = opts_in.keys - opts_defaults.keys
+      raise ArgumentError, "Unrecognised argument(s): #{diff_id.join(", ")}" if diff_id.any?
+
+      (opts_in.keys & opts_defaults.keys).each do |k|
+        raise ArgumentError, "Argument #{k.to_s} must not be nil" if opts_defaults[k] == nil and opts_in[k] == nil
       end
+
+      (opts_defaults.keys - opts_in.keys).each do |k|
+        raise ArgumentError, "Argument #{k.to_s} must not be nil" if opts_defaults[k] == nil
+        opts_in.merge!(k => opts_defaults[k])
+      end
+      opts_in
     end
 
     def wait_with_timeout(cycle_seconds, timeout_seconds)

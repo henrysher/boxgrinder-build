@@ -1,5 +1,5 @@
-require 'aws-sdk'
 require 'boxgrinder-build/helpers/aws-helper'
+require 'aws-sdk'
 require 'timeout'
 require 'pp'
 
@@ -16,6 +16,8 @@ module BoxGrinder
       @log = opts[:log] || LogHelper.new
     end
 
+    # Wait cycles
+
     def wait_for_image_state(state, ami, opts={})
       #First wait for the AMI to be confirmed to exist (after creating, an immediate query can cause an error)
       opts = parse_opts(opts, {:frequency => DEF_POLL_FREQ, :timeout => DEF_TIMEOUT})
@@ -26,6 +28,7 @@ module BoxGrinder
     def wait_for_image_death(ami, opts={})
       opts = parse_opts(opts, {:frequency => DEF_POLL_FREQ, :timeout => DEF_TIMEOUT})
       wait_with_timeout(opts[:frequency], opts[:timeout]){ !ami.exists? }
+    rescue AWS::EC2::Errors::InvalidImageID::NotFound
     end
 
     def wait_for_instance_status(status, instance, opts={})
@@ -65,6 +68,8 @@ module BoxGrinder
       raise
     end
 
+    # EC2 meta-data queries
+
     def self.get_meta_data(path)
       timeout(HTTP_TIMEOUT) do
         req = Net::HTTP::Get.new(path)
@@ -85,6 +90,30 @@ module BoxGrinder
     def self.availability_zone_to_region(availability_zone)
       availability_zone.scan(/((\w+)-(\w+)-(\d+))/).flatten.first
     end
+
+    # EC2 queries
+
+    def ami_by_name(name)
+      i = @ec2.images.with_owner(@plugin_config['account_number']).
+          filter("name", name)
+      return nil unless i.any?
+      i.first
+    end
+
+    alias :already_registered? :ami_by_name
+
+    def snapshot_by_id(snapshot_id)
+     return @ec2.snapshots[snapshot_id] if @ec2.snapshots.filter('snapshot-id', snapshot_id).any?
+     nil
+    end
+
+    def live_instances(ami)
+      q = @ec2.instances.filter('image-id', ami.id)
+      return q.select{|a| a.status != :terminated} if q.any?
+      nil
+    end
+
+    # EC2 Endpoints
 
     def self.endpoints
       SERVICES

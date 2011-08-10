@@ -52,7 +52,16 @@ module BoxGrinder
       raise PluginValidationError, "You can only convert to EBS type AMI appliances converted to EC2 format. Use '-p ec2' switch. For more info about EC2 plugin see http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EC2_Platform_Plugin." unless @previous_plugin_info[:name] == :ec2
       raise PluginValidationError, "You selected #{@plugin_config['availability_zone']} availability zone, but your instance is running in #{@current_availability_zone} zone. Please change availability zone in plugin configuration file to #{@current_availability_zone} (see http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EBS_Delivery_Plugin) or use another instance in #{@plugin_config['availability_zone']} zone to create your EBS AMI." if @plugin_config['availability_zone'] != @current_availability_zone
 
-      @plugin_config['account_number'] = @plugin_config['account_number'].to_s.gsub(/-/, '')
+      @plugin_config['account_number'].to_s.gsub!(/-/, '')
+
+      AWS.config(:access_key_id => @plugin_config['access_key'],
+        :secret_access_key => @plugin_config['secret_access_key'],
+        :ec2_endpoint => @ec2_endpoints[@current_region][:endpoint],
+        :max_retries => 5,
+        :use_ssl => @plugin_config['use_ssl'])
+
+      @ec2 = AWS::EC2.new
+      @ec2helper = EC2Helper.new(@ec2, :log => @log)
     end
 
     def after_init
@@ -64,17 +73,8 @@ module BoxGrinder
     def execute
       ebs_appliance_description = "#{@appliance_config.summary} | Appliance version #{@appliance_config.version}.#{@appliance_config.release} | #{@appliance_config.hardware.arch} architecture"
 
-      AWS.config(:access_key_id => @plugin_config['access_key'],
-        :secret_access_key => @plugin_config['secret_access_key'],
-        :ec2_endpoint => @ec2_endpoints[@current_region][:endpoint],
-        :max_retries => 5,
-        :use_ssl => @plugin_config['use_ssl'])
-
-      @ec2 = AWS::EC2.new
-      @ec2helper = EC2Helper.new(@ec2, :log => @log)
-
       @log.debug "Checking if appliance is already registered..."
-      ami = find_ami(ebs_appliance_name)
+      ami = @ec2helper.ami_by_name(ebs_appliance_name)
 
       if ami and @plugin_config['overwrite']
         @log.info "Overwrite is enabled. Stomping existing assets."
@@ -168,17 +168,6 @@ module BoxGrinder
       raise
     end
 
-    def snapshot_by_id(snapshot_id)
-     return @ec2.snapshots[snapshot_id] if @ec2.snapshots.filter('snapshot-id', snapshot_id).any?
-     nil
-    end
-
-    def live_instances(ami)
-      q = @ec2.instances.filter('image-id', ami.id)
-      return q.select{|a| a.status != :terminated} if q.any?
-      nil
-    end
-
     def terminate_instances(instances)
       instances.map(&:terminate)
       instances.each do |i|
@@ -188,7 +177,7 @@ module BoxGrinder
 
     def stomp_ebs(ami)
       #Find any instances that are running, if they are not stopped then abort.
-      if live = live_instances(ami)
+      if live = @ec2helper.live_instances(ami)
         if @plugin_config['terminate_instances']
           @log.info "Terminating the following instances: #{live.collect{|i| "#{i.id} (#{i.status})"}.join(", ")}."
           terminate_instances(live)
@@ -199,12 +188,12 @@ module BoxGrinder
       end
 
       @log.info("Finding the primary snapshot associated with #{ami.id}.")
-      primary_snapshot = snapshot_by_id(ami.block_device_mappings[ami.root_device_name].snapshot_id)
+      primary_snapshot = @ec2helper.snapshot_by_id(ami.block_device_mappings[ami.root_device_name].snapshot_id)
 
       @log.info("De-registering the EBS AMI.")
       ami.deregister
       @ec2helper.wait_for_image_death(ami)
-      
+
       if !@plugin_config['preserve_snapshots'] and primary_snapshot
         @log.info("Deleting the primary snapshot.")
         primary_snapshot.delete
@@ -218,7 +207,7 @@ module BoxGrinder
 
       snapshot = 1
 
-      while already_registered?("#{base_path}-SNAPSHOT-#{snapshot}/#{@appliance_config.hardware.arch}")
+      while @ec2helper.already_registered?("#{base_path}-SNAPSHOT-#{snapshot}/#{@appliance_config.hardware.arch}")
         snapshot += 1
       end
       # Reuse the last key (if there was one)
@@ -231,15 +220,6 @@ module BoxGrinder
       guestfs.sh("cat /etc/fstab | grep -v '/mnt' | grep -v '/data' | grep -v 'swap' > /etc/fstab.new")
       guestfs.mv("/etc/fstab.new", "/etc/fstab")
     end
-
-    def find_ami(name)
-      i = @ec2.images.with_owner(@plugin_config['account_number']).
-          filter("name", name)
-      return nil unless i.any?
-      i.first
-    end
-
-    alias :already_registered? :find_ami
 
     def wait_for_volume_attachment(suffix)
       @ec2helper.wait_with_timeout(POLL_FREQ, TIMEOUT){ device_for_suffix(suffix) != nil }
