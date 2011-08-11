@@ -63,9 +63,6 @@ module BoxGrinder
       wait_with_timeout(opts[:frequency], opts[:timeout]) do
         volume.status == status
       end
-    rescue Exception
-      @log.debug "Polling of volume #{volume.id} for status '#{status}' failed: #{PP::pp(volume)}" unless volume.nil?
-      raise
     end
 
     # EC2 meta-data queries
@@ -93,18 +90,17 @@ module BoxGrinder
 
     # EC2 queries
 
-    def ami_by_name(name)
-      i = @ec2.images.with_owner(@plugin_config['account_number']).
+    def ami_by_name(name, account_number)
+      q = @ec2.images.with_owner(account_number).
           filter("name", name)
-      return nil unless i.any?
-      i.first
+      return nil unless q.any?
+      q.first
     end
 
-    alias :already_registered? :ami_by_name
-
     def snapshot_by_id(snapshot_id)
-     return @ec2.snapshots[snapshot_id] if @ec2.snapshots.filter('snapshot-id', snapshot_id).any?
-     nil
+     q = @ec2.snapshots.filter('snapshot-id', snapshot_id)
+     return nil unless q.any?
+     q.first
     end
 
     def live_instances(ami)

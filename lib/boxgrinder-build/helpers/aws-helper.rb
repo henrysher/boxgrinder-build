@@ -40,33 +40,24 @@ module BoxGrinder
     #Currently there is no API call for discovering S3 endpoint addresses
     #but the base is presently the same as the EC2 endpoints, so this somewhat better
     #than manually maintaining the data.
-    #def endpoints
-    #  endpoints = {}
-    #  AWS.memoize do
-    #    @ec2.regions.each do |region|
-    #      endpoints.merge!({
-    #        :s3 => {
-    #          region.name => {
-    #            :endpoint => 's3.' << region.name << '.amazonaws.com',
-    #            :kernel => {
-    #              :i386 => select_aki(region, /hd0-.*i386/),
-    #              :x86_64 => select_aki(region, /hd0-.*x86_64/)
-    #            }
-    #          }
-    #        },
-    #        :ebs => {
-    #          region.name => {
-    #            :endpoint => region.endpoint,
-    #            :kernel => {
-    #              :i386 => select_aki(region, /hd00-.*i386/),
-    #              :x86_64 => select_aki(region, /hd00-.*x86_64/)
-    #            }
-    #          }
-    #        }
-    #      })
-    #    end
-    #  end
-    #end
+    #S3 = /hd0-.*i386/, EBS = /hd00-.*i386/
+    def endpoints(service_name, aki_pattern)
+      endpoints = {}
+      AWS.memoize do
+        @ec2.regions.each do |region|
+          endpoints.merge!({
+              region.name => {
+                :endpoint => "#{service_name}.#{region.name}.amazonaws.com",
+                :location => region.name, #or alias?
+                :kernel => {
+                  :i386 => select_aki(region, aki_pattern),
+                  :x86_64 => select_aki(region, aki_pattern)
+                }
+              }
+          })
+        end
+      end
+    end
 
   end
 end

@@ -83,10 +83,6 @@ module BoxGrinder
       supportes_oses['fedora'].should == ['13', '14', '15']
     end
 
-    #it "should generate valid s3 path" do
-    #  @plugin.s3_path('/').should == ""
-    #end
-
     describe ".ami_key" do
 
       it "should generate valid ami_key" do
@@ -268,6 +264,7 @@ module BoxGrinder
         @plugin.should_receive(:upload_to_bucket).with({:disk => 'a/disk'}, :public_read)
         @plugin.execute
       end
+
     end
     #
     describe ".validate" do
@@ -315,6 +312,7 @@ module BoxGrinder
     end
     #
     describe ".bucket" do
+
       it "should create the asset bucket by default" do
         @config.plugins['s3'].merge!('region' => 'ap-southeast-1')
 
@@ -336,6 +334,7 @@ module BoxGrinder
     end
     #
     describe ".upload_image" do
+
       it "should upload image for default region" do
         @plugin.should_receive(:asset_bucket)
         @exec_helper.should_receive(:execute).with("euca-upload-bundle -U http://s3.amazonaws.com -b bucket/ami/key -m build/path/s3-plugin/ami/appliance.ec2.manifest.xml -a access_key -s secret_access_key", :redacted=>["access_key", "secret_access_key"])
@@ -349,9 +348,11 @@ module BoxGrinder
         @exec_helper.should_receive(:execute).with("euca-upload-bundle -U http://s3-us-west-1.amazonaws.com -b bucket/ami/key -m build/path/s3-plugin/ami/appliance.ec2.manifest.xml -a access_key -s secret_access_key", :redacted=>["access_key", "secret_access_key"])
         @plugin.upload_image("ami/key")
       end
+
     end
     #
     describe ".register_image" do
+
       before(:each) do
         @ami = mock(AWS::EC2::Image)
         @ami.stub!(:id).and_return('ami-1234')
@@ -359,7 +360,7 @@ module BoxGrinder
         @manifest_key = mock(AWS::S3::S3Object)
         @manifest_key.stub!(:key).and_return('ami/manifest/key')
 
-        @ec2.stub!(:images).stub!(:create).and_return(@ami)
+        @ec2.stub!(:images)
         @ec2helper.stub!(:wait_for_image_state)
       end
     #
@@ -388,9 +389,11 @@ module BoxGrinder
           @plugin.register_image(@manifest_key)
         end
       end
+
     end
 
      describe ".deregister_image" do
+
        before(:each) do
          @ami = mock(AWS::EC2::Image)
          @plugin.stub!(:ami_by_manifest_key).and_return(@ami)
@@ -402,12 +405,13 @@ module BoxGrinder
          @ami.stub!(:location)
        end
 
-       it "should register the AMI" do
+       it "should deregister the AMI" do
          @plugin.should_receive(:ami_by_manifest_key).with(@manifest_key)
          @ami.should_receive(:deregister)
          @ec2helper.should_receive(:wait_for_image_death).with(@ami)
          @plugin.deregister_image(@manifest_key)
-      end
+       end
+
     end
 
   end

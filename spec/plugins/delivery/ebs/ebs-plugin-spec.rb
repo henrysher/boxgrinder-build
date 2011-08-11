@@ -89,95 +89,6 @@ module BoxGrinder
       supported_oses['fedora'].should == ['13', '14', '15']
       supported_oses['centos'].should == ['5']
     end
-
-    #describe ".after_init" do
-    #  it "should set the region" do
-    #    prepare_plugin do |plugin|
-    #      plugin.instance_variable_set(:@current_availability_zone, 'us-east-1a')
-    #    end
-    #
-    #    @plugin.instance_variable_get(:@region).should == 'us-east-1'
-    #  end
-    #end
-    #
-    #describe '.ami_by_name' do TODO move to EC2Helper spec
-    #
-    #  it "should check if image is already registered and return false if there are no images registered for this account" do
-    #    @ec2.stub!(:images)
-    #    @ec2.images.should_receive(:with_owner).with('000000000000').
-    #        should_receive(:filter).with('name','bezukhov')
-    #    @plugin.ami_by_name('bezukhov').should == false
-    #  end
-    #
-    #  it "should check if image is already registered and return false if there are no images with name aname_new" do
-    #    prepare_plugin { |plugin| plugin.stub!(:after_init) }
-    #
-    #    plugin_config = mock('PluginConfig')
-    #    plugin_config.should_receive(:[]).with('account_number').and_return('0000-0000-0000')
-    #
-    #    @plugin.instance_variable_set(:@plugin_config, plugin_config)
-    #
-    #    ec2 = mock('EC2')
-    #    ec2.should_receive(:describe_images).with(:owner_id => '000000000000').and_return({'imagesSet' => {'item' => [{'name' => 'abc', 'imageId' => '1'}, {'name' => 'aname', 'imageId' => '2'}]}})
-    #
-    #    @plugin.instance_variable_set(:@ec2, ec2)
-    #
-    #    @plugin.ami_info('aname_new').should == false
-    #  end
-    #
-    #  it "should return valid AMI information map for a single matching image when a valid imageId exists" do
-    #    prepare_plugin { |plugin| plugin.stub!(:after_init) }
-    #
-    #    plugin_config = mock('PluginConfig')
-    #    plugin_config.should_receive(:[]).with('account_number').and_return('0000-0000-0000')
-    #
-    #    @plugin.instance_variable_set(:@plugin_config, plugin_config)
-    #
-    #    ec2 = mock('EC2')
-    #    ec2.should_receive(:describe_images).with(:owner_id => '000000000000').and_return({'imagesSet' => {'item' => [{'name' => 'abc', 'imageId' => '1'}, {'name' => 'aname', 'imageId' => '2'}]}})
-    #
-    #    @plugin.instance_variable_set(:@ec2, ec2)
-    #
-    #    @plugin.ami_info('aname').should == {'name' => 'aname', 'imageId' => '2'}
-    #  end
-    #
-    #  it "should return false if there were no AMIs found, but a nil imagesSet is still returned" do
-    #    prepare_plugin { |plugin| plugin.stub!(:after_init) }
-    #
-    #    plugin_config = mock('PluginConfig')
-    #    plugin_config.should_receive(:[]).with('account_number').and_return('0000-0000-0000')
-    #
-    #    @plugin.instance_variable_set(:@plugin_config, plugin_config)
-    #
-    #    ec2 = mock('EC2')
-    #    ec2.should_receive(:describe_images).with(:owner_id => '000000000000').and_return({'imagesSet' => nil})
-    #
-    #    @plugin.instance_variable_set(:@ec2, ec2)
-    #
-    #    @plugin.ami_info('anything').should == false
-    #  end
-    #
-    #end
-    #
-    #describe '.already_registered?' do TODO move to EC2Helper spec
-    #
-    #  it "should check if image is already registered and return true image is registered" do
-    #    prepare_plugin { |plugin| plugin.stub!(:after_init) }
-    #
-    #    plugin_config = mock('PluginConfig')
-    #    plugin_config.should_receive(:[]).with('account_number').and_return('0000-0000-0000')
-    #
-    #    @plugin.instance_variable_set(:@plugin_config, plugin_config)
-    #
-    #    ec2 = mock('EC2')
-    #    ec2.should_receive(:describe_images).with(:owner_id => '000000000000').and_return({'imagesSet' => {'item' => [{'name' => 'abc', 'imageId' => '1'}, {'name' => 'aname', 'imageId' => '2'}]}})
-    #
-    #    @plugin.instance_variable_set(:@ec2, ec2)
-    #
-    #    @plugin.already_registered?('aname').should == '2'
-    #  end
-    #
-    #end
     #
     it "should adjust fstab" do
       prepare_plugin { |plugin| plugin.stub!(:after_init) }
@@ -289,7 +200,8 @@ module BoxGrinder
                 {'snapshot_id' => 'snap-hambiscuit', 'volume_size' => 2})}
         )
         @ami.stub!(:root_device_name).and_return('/dev/sda1')
-        instance_1, instance_2 = mock(AWS::EC2::Instance)
+        instance_1 = mock(AWS::EC2::Instance)
+        instance_2 = mock(AWS::EC2::Instance)
         instance_1.stub!(:id).and_return('i-cake')
         instance_1.stub!(:status).and_return(:running)
         instance_2.stub!(:id).and_return('i-bake')

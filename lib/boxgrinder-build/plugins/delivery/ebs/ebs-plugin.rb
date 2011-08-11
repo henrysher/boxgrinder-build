@@ -168,6 +168,12 @@ module BoxGrinder
       raise
     end
 
+    def ami_by_name(name)
+      @ec2helper.ami_by_name(name, @plugin_config['account_number'])
+    end
+
+    alias :already_registered? :ami_by_name
+
     def terminate_instances(instances)
       instances.map(&:terminate)
       instances.each do |i|
