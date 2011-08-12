@@ -209,7 +209,7 @@ module BoxGrinder
 
         it "should not compress the data before uploading the chunks if we use CloudSigma" do
           @plugin_config.merge!('endpoint' => 'api.cloudsigma.com')
-          @plugin.instance_variable_set(:@previous_deliverables, {:disk => 'a/disk'})
+          @plugin.instance_variable_set(:@previous_deliverables, OpenCascade.new({:disk => 'a/disk'}))
 
           f = mock(File)
           f.should_receive(:eof?).ordered.and_return(false)
