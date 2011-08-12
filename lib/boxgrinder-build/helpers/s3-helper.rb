@@ -1,3 +1,21 @@
+#
+# Copyright 2010 Red Hat, Inc.
+#
+# This is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation; either version 3 of
+# the License, or (at your option) any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this software; if not, write to the Free
+# Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+# 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+
 require 'boxgrinder-build/helpers/aws-helper'
 
 module BoxGrinder
@@ -25,21 +43,9 @@ module BoxGrinder
       nil
     end
 
-    #There is no 'key_exists?' type method.. so this is a work-around.
-    #If the object does not exist, and you attempt to read the etag it returns a NoMethodError
-    #but it *should* return a NoSuchKey exception (bug). This seems better than listing all keys and searching..
+    #aws-sdk 1.0.3 added .exists?
     def object_exists?(s3_object)
-      @log.trace "Checking if '#{s3_object.key}' exists"
-      begin
-        #if s3_object.etag
-        if s3_object.exists?
-          @log.trace "Object exists! #{s3_object.etag}"
-          return true
-        end
-      rescue AWS::S3::Errors::NoSuchKey, NoMethodError
-        @log.trace "Object does not exist"
-        return false
-      end
+      s3_object.exists?
     end
 
     def delete_folder(bucket, path)

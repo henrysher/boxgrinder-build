@@ -166,7 +166,7 @@ module BoxGrinder
 
       describe ".upload_chunks" do
         it "should upload chunks in 2 parts" do
-          @plugin.instance_variable_set(:@previous_deliverables, {:disk => 'a/disk'})
+          @plugin.instance_variable_set(:@previous_deliverables, OpenCascade.new({:disk => 'a/disk'}))
 
           f = mock(File)
           f.should_receive(:eof?).ordered.and_return(false)
@@ -191,7 +191,7 @@ module BoxGrinder
 
         it "should upload 1 chunk with custom chunk size" do
           @plugin_config.merge!('chunk' => 128)
-          @plugin.instance_variable_set(:@previous_deliverables, {:disk => 'a/disk'})
+          @plugin.instance_variable_set(:@previous_deliverables, OpenCascade.new({:disk => 'a/disk'}))
 
           f = mock(File)
           f.should_receive(:eof?).ordered.and_return(false)
