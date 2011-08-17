@@ -45,7 +45,16 @@ module BoxGrinder
 
     #aws-sdk 1.0.3 added .exists?
     def object_exists?(s3_object)
-      s3_object.exists?
+      @log.trace "Checking if '#{s3_object.key}' path exists..."
+      begin
+        if s3_object.etag
+          @log.trace "Path exists! #{s3_object.etag}"
+          return true
+        end
+      rescue AWS::S3::Errors::NoSuchKey, NoMethodError
+        @log.trace "Path does not exist"
+        return false
+      end
     end
 
     def delete_folder(bucket, path)
