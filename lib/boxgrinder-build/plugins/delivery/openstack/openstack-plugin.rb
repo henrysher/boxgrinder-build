@@ -74,15 +74,15 @@ module BoxGrinder
           when :virtualbox:
             disk_format = :vmdk
         end
-      end 
+      end
 
       [disk_format, container_format]
     end
 
     def post_image(options = {})
       options = {
-          :disk_format => :ami, # raw, vhd, vmdk, vdi, qcow2, aki, ari, ami
-          :container_format => :ami, # ovf, bare, aki, ari, ami
+          :disk_format => :raw, # raw, vhd, vmdk, vdi, qcow2, aki, ari, ami
+          :container_format => :bare, # ovf, bare, aki, ari, ami
           :public => true
       }.merge(options)
 
