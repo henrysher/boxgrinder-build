@@ -132,6 +132,7 @@ popd
 %changelog
 * Tue Sep 06 2011 Marek Goldmann <mgoldman@redhat.com> - 0.10.0-1
 - Upstream release: 0.10.0
+- [BGBUILD-195] Add support for OpenStack
 
 * Sat Aug 27 2011 Marek Goldmann <mgoldman@redhat.com> - 0.9.6-1
 - Upstream release: 0.9.6
