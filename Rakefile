@@ -22,7 +22,7 @@ require 'echoe'
 
 Echoe.new("boxgrinder-build") do |p|
   p.project = "BoxGrinder Build"
-  p.author = "Marek Goldmann"
+  p.author = ["Marek Goldmann", "Marc Savy"]
   p.summary = "A tool for creating appliances from simple plain text files for various virtual environments."
   p.url = "http://boxgrinder.org/"
   p.email = "info@boxgrinder.org"

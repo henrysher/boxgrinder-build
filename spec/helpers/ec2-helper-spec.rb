@@ -23,7 +23,7 @@ require 'aws-sdk'
 module BoxGrinder
   describe EC2Helper do
 
-    FAST_POLL = 0.1
+    FAST_POLL = 0.01
     FAST_TO   = 1
 
     before(:each) do
