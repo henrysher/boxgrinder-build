@@ -83,7 +83,7 @@ module BoxGrinder
       # At present we can use virt-install to generate the xml. Unfortunately if we
       # use it actually install into libvirt, it starts up the appliance on the remote side
       # and never terminates it, even when just using --import.
-      xml = IO::popen(cmd_string)
+      xml = IO::popen(cmd_string).gets
 
       if @script
         @log.info "Attempting to run user provided script for modifying libVirt XML..."
