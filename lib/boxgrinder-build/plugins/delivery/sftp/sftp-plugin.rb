@@ -43,8 +43,8 @@ module BoxGrinder
 
       begin
         #TODO move to a block
-        connect
-        upload_files(@plugin_config['path'], File.basename(@deliverables[:package]) => @deliverables[:package])
+        connect(@plugin_config['host'], @plugin_config['username'], @plugin_config['password'])
+        upload_files(@plugin_config['path'], @plugin_config['default_permissions'], File.basename(@deliverables[:package]) => @deliverables[:package])
         disconnect
 
         @log.info "Appliance #{@appliance_config.name} uploaded."
@@ -54,9 +54,9 @@ module BoxGrinder
       end
     end
 
-    def connect
+    def connect(host, username, password)
       @log.info "Connecting to #{@plugin_config['host']}..."
-      @ssh = Net::SSH.start(@plugin_config['host'], @plugin_config['username'], {:password => @plugin_config['password']})
+      @ssh = Net::SSH.start(host, username, {:password => password})
     end
 
     def connected?
@@ -70,7 +70,7 @@ module BoxGrinder
       @ssh = nil
     end
 
-    def upload_files(path, files = {})
+    def upload_files(path, default_permissions,files = {})
       return if files.size == 0
 
       raise "You're not connected to server" unless connected?
@@ -144,7 +144,7 @@ module BoxGrinder
             end
           end
 
-          sftp.setstat(remote, :permissions => @plugin_config['default_permissions'])
+          sftp.setstat(remote, :permissions => default_permissions)
         end
       end
     end
