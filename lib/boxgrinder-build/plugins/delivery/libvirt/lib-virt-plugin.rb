@@ -31,7 +31,7 @@ module BoxGrinder
       @remote_no_verify = @plugin_config['remote_no_verify'] ? 1 : 0
 
       @libvirt_uri = @plugin_config['libvirt_uri'] << "?no_verify=#{@remote_no_verify}"
-      @bus = @plugin_config['bus']
+      @bus = @plugin_config['device_bus']
     end
 
     def execute
@@ -87,7 +87,7 @@ module BoxGrinder
 
       if @script
         @log.info "Attempting to run user provided script for modifying libVirt XML..."
-        xml = IO.popen("#{script} #{xml}").gets
+        xml = IO::popen("#{script} #{xml}").gets
         @log.debug "Response was: #{xml}"
       end
 
