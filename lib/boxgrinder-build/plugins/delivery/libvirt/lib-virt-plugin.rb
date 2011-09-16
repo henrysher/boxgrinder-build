@@ -27,10 +27,11 @@ module BoxGrinder
       @no_auto_console = @plugin_config['noautoconsole']
       @graphics = @plugin_config['graphics']
       @network = @plugin_config['network']
-      @libvirt_uri = @plugin_config['libvirt_uri']
-      @bus = @plugin_config['bus']
 
       @remote_no_verify = @plugin_config['remote_no_verify'] ? 1 : 0
+
+      @libvirt_uri = @plugin_config['libvirt_uri'] << "?no_verify=#{@remote_no_verify}"
+      @bus = @plugin_config['bus']
     end
 
     def execute
@@ -46,7 +47,7 @@ module BoxGrinder
       xml = get_xml
 
       begin
-        conn = Libvirt::open(@libvirt_uri)
+        conn = Libvirt::open()
         conn.define_domain_xml(xml)
       ensure
         conn.close unless conn.closed?
@@ -95,3 +96,5 @@ module BoxGrinder
 
   end
 end
+
+plugin :class => BoxGrinder::LibVirtPlugin, :type => :delivery, :name => :libvirt, :full_name => "libVirt Virtualisation API"
