@@ -47,7 +47,7 @@ module BoxGrinder
       xml = get_xml
 
       begin
-        conn = Libvirt::open()
+        conn = Libvirt::open(@libvirt_uri)
         conn.define_domain_xml(xml)
       ensure
         conn.close unless conn.closed?
