@@ -74,7 +74,6 @@ module BoxGrinder
                             "--ram #{@appliance_config.hardware.memory} " <<
                             "--vcpus #{@appliance_config.hardware.cpus} " <<
                             "--graphics #{@graphics}" <<
-                            "--hvm " <<
                             "--print-xml "
 
       cmd_string << "--network #{@network} " if @network #otherwise leave defaults
@@ -85,6 +84,7 @@ module BoxGrinder
       # and never terminates it, even when just using --import.
       xml = IO::popen(cmd_string).gets
 
+      # Let the user modify the XML specification to their taste
       if @script
         @log.info "Attempting to run user provided script for modifying libVirt XML..."
         xml = IO::popen("#{script} #{xml}").gets
