@@ -44,7 +44,7 @@ module BoxGrinder
       begin
         #TODO move to a block
         connect(@plugin_config['host'], @plugin_config['username'], @plugin_config['password'])
-        upload_files(@plugin_config['path'], @plugin_config['default_permissions'], File.basename(@deliverables[:package]) => @deliverables[:package])
+        upload_files(@plugin_config['path'], @plugin_config['default_permissions'], @plugin_config['overwrite'], File.basename(@deliverables[:package]) => @deliverables[:package])
         disconnect
 
         @log.info "Appliance #{@appliance_config.name} uploaded."
@@ -55,7 +55,7 @@ module BoxGrinder
     end
 
     def connect(host, username, password)
-      @log.info "Connecting to #{@plugin_config['host']}..."
+      @log.info "Connecting to #{host}..."
       @ssh = Net::SSH.start(host, username, {:password => password})
     end
 
@@ -65,12 +65,12 @@ module BoxGrinder
     end
 
     def disconnect
-      @log.info "Disconnecting from #{@plugin_config['host']}..."
+      @log.info "Disconnecting from host..."
       @ssh.close if connected?
       @ssh = nil
     end
 
-    def upload_files(path, default_permissions,files = {})
+    def upload_files(path, default_permissions, overwrite, files = {})
       return if files.size == 0
 
       raise "You're not connected to server" unless connected?
@@ -112,7 +112,7 @@ module BoxGrinder
           begin
             sftp.stat!(remote)
 
-            unless @plugin_config['overwrite']
+            unless overwrite
 
               local_md5_sum   = `md5sum #{local} | awk '{ print $1 }'`.strip
               remote_md5_sum  = @ssh.exec!("md5sum #{remote} | awk '{ print $1 }'").strip
