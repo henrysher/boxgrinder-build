@@ -10,49 +10,46 @@ module BoxGrinder
   class LibVirtPlugin < BasePlugin
 
 
-    def after_init
-
-    end
-
     def set_defaults
-      set_default_config_value('script', false)
-      set_default_config_value('image_delivery_uri', '/var/lib/libvirt/images/')
-      set_default_config_value('graphics', 'none')
-      set_default_config_value('noautoconsole', true)
-      set_default_config_value('network', false)
-      set_default_config_value('remote_no_verify', true)
-      #set_default_config_value('bus','virtio')
-      set_default_config_value('bus','ide')
+       set_default_config_value('script', false)
+       set_default_config_value('image_delivery_uri', '/var/lib/libvirt/images/')
+       set_default_config_value('graphics', 'none')
+       set_default_config_value('no_auto_console', true)
+       set_default_config_value('network', false)
+       # Disable certificate verification procedures by default
+       set_default_config_value('remote_no_verify', true)
+       #set_default_config_value('bus','virtio')
+       set_default_config_value('bus','ide')
+       set_default_config_value('overwrite', false)
+       set_default_config_value('default_permissions', 0644)
 
-      set_default_config_value('overwrite', false)
-      set_default_config_value('default_permissions', 0644)
-      #set_default_config_value('libvirt_hypervisor_uri','system:///')
+       validate_plugin_config(['libvirt_hypervisor_uri'])
+     end
 
-      validate_plugin_config(['libvirt_hypervisor_uri'])
-    end
+     def validate
+       set_defaults
 
-    def validate
+       # Optional user provided script
+       @script = @plugin_config['script']
+       @image_delivery_uri = URI.parse(@plugin_config['image_delivery_uri'])
 
-      set_defaults
+       # The path that the image will be accessible at on the {remote, local} libvirt
+       # If not specified we assume it is the same as the @image_delivery_uri. It is valid
+       # that they can be different - for instance the image is delivered to a central repository
+       # by SSH that maps to a local mount on host using libvirt.
 
-      @script = @plugin_config['script']
-      @image_delivery_uri = URI.parse(@plugin_config['image_delivery_uri'])
-      @libvirt_image_uri = (@plugin_config['libvirt_image_uri'] ||= @image_delivery_uri.path)
-      @no_auto_console = @plugin_config['noautoconsole']
-      @graphics = @plugin_config['graphics']
-      @network = @plugin_config['network']
-      @__bus = @plugin_config['bus']
+       @libvirt_image_uri = (@plugin_config['libvirt_image_uri'] ||= @image_delivery_uri.path)
+       @no_auto_console = @plugin_config['no_auto_console']
+       @graphics = @plugin_config['graphics']
+       @network = @plugin_config['network']
+       @_bus = @plugin_config['bus']
 
-      @remote_no_verify = @plugin_config['remote_no_verify'] ? 1 : 0
+       # no_verify determines whether certificate validation performed
+       @remote_no_verify = @plugin_config['remote_no_verify'] ? 1 : 0
 
-      puts @remote_no_verify
-      puts @plugin_config['libvirt_hypervisor_uri']
-      puts @__bus
-
-      #no_verify determines whether there is certificate validation performed
-      @libvirt_hypervisor_uri = @plugin_config['libvirt_hypervisor_uri'] << "?no_verify=#{@remote_no_verify}"
-      @bus = @plugin_config['device_bus']
-    end
+       @libvirt_hypervisor_uri = @plugin_config['libvirt_hypervisor_uri'] << "?no_verify=#{@remote_no_verify}"
+       @bus = @plugin_config['device_bus']
+     end
 
     def execute
 
