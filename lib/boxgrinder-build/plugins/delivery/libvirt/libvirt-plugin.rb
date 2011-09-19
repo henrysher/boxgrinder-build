@@ -61,10 +61,10 @@ module BoxGrinder
 
       if @image_delivery_uri.scheme =~ /(sftp|scp)/
         @log.info("Assuming this is a remote address.")
-        #upload_image
+        upload_image
       else
         @log.info("Copying disk #{@previous_deliverables.disk} to: #{@image_delivery_uri}")
-        #FileUtils.cp(@previous_deliverables.disk, @image_delivery_uri)
+        FileUtils.cp(@previous_deliverables.disk, @image_delivery_uri)
       end
 
       begin
@@ -79,7 +79,7 @@ module BoxGrinder
 
         xml = get_xml
         conn.define_domain_xml(xml)
-      rescue Exception => e
+      rescue Exception
         @log.fatal("There was a problem interacting with the remote libvirt server.")
         raise
       ensure
@@ -109,7 +109,7 @@ module BoxGrinder
 
     def get_xml
       cmd_string = "virt-install --disk '#{@libvirt_image_uri}/#{File.basename(@previous_deliverables.disk)},device=disk,bus=#{@bus},size=#{File.size(@previous_deliverables.disk)}' " <<
-                            "--connect #{@libvirt_hypervisor_uri} "
+                            "--connect #{@libvirt_hypervisor_uri} " <<
                             "--name '#{@appliance_name}' " <<
                             "--description '#{@appliance_config.summary}' " <<
                             "--os-type linux " <<
@@ -145,7 +145,7 @@ module BoxGrinder
 
     def get_existing_domain(conn, name)
       return conn.lookup_domain_by_name(name)
-    rescue Error => e
+    rescue Libvirt::Error => e
       return nil if e.libvirt_code == 42 # If domain not defined
       raise # Otherwise reraise
     end
