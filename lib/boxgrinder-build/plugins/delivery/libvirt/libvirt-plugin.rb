@@ -95,6 +95,7 @@ module BoxGrinder
 
     def get_xml
       cmd_string = "virt-install --disk '#{@libvirt_image_uri}/#{File.basename(@previous_deliverables.disk)},device=disk,bus=#{@__bus},size=#{File.size(@previous_deliverables.disk)}' " <<
+                            "--connect #{@libvirt_hypervisor_uri} "
                             "--name '#{@appliance_config.name}-#{@appliance_config.version}.#{@appliance_config.release}-#{@appliance_config.os.name}-#{@appliance_config.os.version}-#{@appliance_config.hardware.arch}-#{current_platform}' " <<
                             "--description '#{@appliance_config.summary}' " <<
                             "--os-type linux " <<
@@ -103,7 +104,8 @@ module BoxGrinder
                             "--vcpus #{@appliance_config.hardware.cpus} " <<
                             "--graphics #{@graphics} " <<
                             "--import " <<
-                            "--print-xml "# <<
+                            "--print-xml " <<
+                            "--dry-run "
 
       cmd_string << "--network #{@network} " if @network #otherwise leave defaults
       cmd_string << "--noautoconsole " if @no_auto_console
