@@ -130,6 +130,10 @@ module BoxGrinder
 
       FileUtils.mv(Dir.glob("#{@dir.tmp}/#{@appliance_config.name}/*"), @dir.tmp)
       FileUtils.rm_rf("#{@dir.tmp}/#{@appliance_config.name}/")
+      FileUtils.chown(@config.uid, @config.gid, @appliance_config.path.build)
+
+      @log.debug "Lowering to user-level."
+      change_user(@config.uid, @config.gid)
 
       @image_helper.customize([@deliverables.disk]) do |guestfs, guestfs_helper|
         # TODO is this really needed?
@@ -379,6 +383,21 @@ module BoxGrinder
 
       end
       @log.debug "Files installed."
+    end
+
+    def change_user(u, g)
+      begin
+      Process::Sys.setresgid(g, g, g) if Process::Sys.respond_to?(:setresgid)
+      Process::Sys.setresuid(u, u, u) if Process::Sys.respond_to?(:setresuid)
+      rescue NotImplementedError
+      end
+
+      begin
+      # JRuby does not support saved ids
+      Process::Sys.setregid(g, g) if Process::Sys.respond_to?(:setregid)
+      Process::Sys.setreuid(u, u) if Process::Sys.respond_to?(:setreuid)
+      rescue NotImplementedError
+      end
     end
   end
 end
