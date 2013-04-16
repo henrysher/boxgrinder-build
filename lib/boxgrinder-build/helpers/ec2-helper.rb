@@ -137,8 +137,8 @@ module BoxGrinder
             :endpoint => 'ec2.eu-west-1.amazonaws.com',
             :location => 'EU',
             :kernel => {
-              :i386 => {:aki => 'aki-4deec439'},
-              :x86_64 => {:aki => 'aki-4feec43b'}
+              :i386 => {:aki => 'aki-75665e01'},
+              :x86_64 => {:aki => 'aki-71665e05'}
             }
           },
 
@@ -146,8 +146,8 @@ module BoxGrinder
             :endpoint => 'ec2.ap-southeast-1.amazonaws.com',
             :location => 'ap-southeast-1',
             :kernel => {
-              :i386 => {:aki => 'aki-13d5aa41'},
-              :x86_64 => {:aki => 'aki-11d5aa43'}
+              :i386 => {:aki => 'aki-f81354aa'},
+              :x86_64 => {:aki => 'aki-fe1354ac'}
             }
           },
 
@@ -164,8 +164,8 @@ module BoxGrinder
             :endpoint => 'ec2.ap-northeast-1.amazonaws.com',
             :location => 'ap-northeast-1',
             :kernel => {
-              :i386 => {:aki => 'aki-d209a2d3'},
-              :x86_64 => {:aki => 'aki-d409a2d5'}
+              :i386 => {:aki => 'aki-42992843'},
+              :x86_64 => {:aki => 'aki-44992845'}
             }
           },
 
@@ -173,8 +173,8 @@ module BoxGrinder
             :endpoint => 'ec2.us-west-1.amazonaws.com',
             :location => 'us-west-1',
             :kernel => {
-              :i386 => {:aki => 'aki-99a0f1dc'},
-              :x86_64 => {:aki => 'aki-9ba0f1de'}
+              :i386 => {:aki => 'aki-f57e26b0'},
+              :x86_64 => {:aki => 'aki-f77e26b2'}
             }
           },
 
@@ -182,8 +182,8 @@ module BoxGrinder
             :endpoint => 'ec2.us-west-2.amazonaws.com',
             :location => 'us-west-2',
             :kernel => {
-              :i386 => {:aki => 'aki-dce26fec'},
-              :x86_64 => {:aki => 'aki-98e26fa8'}
+              :i386 => {:aki => 'aki-fa37baca'},
+              :x86_64 => {:aki => 'aki-fc37bacc'}
             }
           },
 
@@ -191,8 +191,8 @@ module BoxGrinder
             :endpoint => 'ec2.amazonaws.com',
             :location => nil,
             :kernel => {
-              :i386 => {:aki => 'aki-407d9529'},
-              :x86_64 => {:aki => 'aki-427d952b'}
+              :i386 => {:aki => 'aki-b6aa75df'},
+              :x86_64 => {:aki => 'aki-88aa75e1'}
             }
           },
 
@@ -200,8 +200,8 @@ module BoxGrinder
             :endpoint => 'ec2.sa-east-1.amazonaws.com',
             :location => 'sa-east-1',
             :kernel => {
-              :i386 => {:aki => 'aki-863ce39b'},
-              :x86_64 => {:aki => 'aki-d63ce3cb'}
+              :i386 => {:aki => 'aki-ca8f51d7'},
+              :x86_64 => {:aki => 'aki-c48f51d9'}
           }
          }
         }
