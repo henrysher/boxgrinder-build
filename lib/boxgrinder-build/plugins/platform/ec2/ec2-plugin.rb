@@ -64,7 +64,15 @@ module BoxGrinder
         upload_fstab(guestfs)
         enable_networking(guestfs)
         upload_rc_local(guestfs)
-        add_ec2_user(guestfs)
+
+        if @appliance_config.os.ec2_user.nil?
+          add_ec2_user(guestfs, "ec2-user")
+        elsif @appliance_config.os.ec2_user.empty?
+          add_ec2_user(guestfs, "ec2-user")
+        else
+          add_ec2_user(guestfs, @appliance_config.os.ec2_user)
+        end
+          
         change_configuration(guestfs_helper)
         install_menu_lst(guestfs)
 
@@ -152,26 +160,26 @@ module BoxGrinder
       @log.debug "Nosegneg enabled."
     end
 
-    # Adds ec2-user will full sudo access without password per Fedora security guidelines.
+    # Adds ics-user will full sudo access without password per Fedora security guidelines.
     # We should not use root access on AMIs as it is not secure and prohibited by AWS.
     #
     # https://issues.jboss.org/browse/BGBUILD-110
-    def add_ec2_user(guestfs)
-      @log.debug "Adding ec2-user user..."
+    def add_ec2_user(guestfs, ec2_user)
+      @log.debug "Adding ics-user user..."
 
-      # We need to add ec2-user only when it doesn't exists
+      # We need to add ics-user only when it doesn't exists
       #
       # https://issues.jboss.org/browse/BGBUILD-313
-      unless guestfs.fgrep("ec2-user", "/etc/passwd").empty?
-        @log.debug("ec2-user already exists, skipping.")
+      unless guestfs.fgrep(ec2_user, "/etc/passwd").empty?
+        @log.debug("#{ec2_user} already exists, skipping.")
         return
       end
 
-      guestfs.sh("useradd ec2-user")
-      guestfs.sh("echo -e 'ec2-user\tALL=(ALL)\tNOPASSWD: ALL' >> /etc/sudoers")
+      guestfs.sh("useradd #{ec2_user}")
+      guestfs.sh("echo -e '#{ec2_user}\tALL=(ALL)\tNOPASSWD: ALL' >> /etc/sudoers")
       guestfs.sh("/bin/sed -i 's/Defaults.*requiretty/#Defaults  requiretty/g' /etc/sudoers")
 
-      @log.debug "User ec2-user added."
+      @log.debug "User #{ec2_user} added."
     end
 
     # enable networking on default runlevels
