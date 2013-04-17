@@ -169,6 +169,7 @@ module BoxGrinder
 
       guestfs.sh("useradd ec2-user")
       guestfs.sh("echo -e 'ec2-user\tALL=(ALL)\tNOPASSWD: ALL' >> /etc/sudoers")
+      guestfs.sh("/bin/sed -i 's/Defaults.*requiretty/#Defaults  requiretty/g' /etc/sudoers")
 
       @log.debug "User ec2-user added."
     end
