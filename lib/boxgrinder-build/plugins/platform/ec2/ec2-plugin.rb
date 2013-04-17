@@ -160,14 +160,14 @@ module BoxGrinder
       @log.debug "Nosegneg enabled."
     end
 
-    # Adds ics-user will full sudo access without password per Fedora security guidelines.
+    # Adds ec2_user will full sudo access without password per Fedora security guidelines.
     # We should not use root access on AMIs as it is not secure and prohibited by AWS.
     #
     # https://issues.jboss.org/browse/BGBUILD-110
     def add_ec2_user(guestfs, ec2_user)
-      @log.debug "Adding ics-user user..."
+      @log.debug "Adding #{ec2_user} user..."
 
-      # We need to add ics-user only when it doesn't exists
+      # We need to add ec2_user only when it doesn't exists
       #
       # https://issues.jboss.org/browse/BGBUILD-313
       unless guestfs.fgrep(ec2_user, "/etc/passwd").empty?
